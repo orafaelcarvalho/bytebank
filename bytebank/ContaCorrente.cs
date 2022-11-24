@@ -12,6 +12,7 @@ namespace bytebank
     {
         public Cliente titular;
         private string _conta;
+        public double TaxaOperacao { get; private set; }
         public string Conta
         {
             get { return _conta; }
@@ -25,7 +26,7 @@ namespace bytebank
         public int NumeroAgencia
         {
             get { return _numeroAgencia; }
-            set
+            private set
             {
                 if (value > 0)
                     _numeroAgencia = value;
@@ -34,17 +35,15 @@ namespace bytebank
         public string NomeAgencia { get; set; }
         private double _saldo;
 
-        public bool Sacar(double valor)
+        public void Sacar(double valor)
         {
             if (_saldo < valor || valor < 0)
             {
-                return false;
+                ContadorSaquesNaoPermitidos++;
+                throw new SaldoInsuficienteException($"Saldo insuficiente para saque no valor de R${valor}");
             }
-            else
-            {
-                _saldo = _saldo - valor;
-                return true;
-            }
+            _saldo = _saldo - valor;                
+            
         }
 
         public void Depositar(double valor)
@@ -52,37 +51,18 @@ namespace bytebank
             _saldo += valor;
         }
 
-        public bool Tranferir(double valor, ContaCorrente destino)
+        public void Transferir(double valor, ContaCorrente destino)
         {
-            if (_saldo < valor || valor < 0)
+            try
             {
-                return false;
+                Sacar(valor);
             }
-            else
+            catch(SaldoInsuficienteException ex)
             {
-                _saldo = _saldo - valor;
-                destino._saldo = destino._saldo + valor;
-                return true;
-            }
+                throw new OperacaoFinanceiraException($"Operação não realizada", ex);
+            }            
+            destino._saldo = destino._saldo + valor;
         }
-
-        //public void SetSaldo(double valor)
-        //{
-        //    if(valor < 0)
-        //    {
-        //        return;
-        //    }
-        //    else
-        //    {
-        //        saldo += valor;
-        //    }
-        //}
-
-        //public double GetSaldo()
-        //{
-        //    return saldo;
-        //}
-
         public double Saldo
         {
             get { return _saldo; }
@@ -103,9 +83,15 @@ namespace bytebank
         {
             NumeroAgencia = numeroagencia;
             Conta = conta;
+            if (numeroagencia <= 0 || conta == "0")
+                throw new ArgumentException($"Os argumentos {nameof(numeroagencia)} e {nameof(conta)} devem ser maiores que 0.");
+
             TotalDeContasCriadas += 1;
+            TaxaOperacao = 30 / TotalDeContasCriadas;            
         }
 
-        public static int TotalDeContasCriadas{ get; set; }
+        public static int TotalDeContasCriadas { get; private set; }
+        public static int ContadorSaquesNaoPermitidos { get; private set; }
+        public static int ContadorTranferenciasNaoPermitidos { get; private set; }
     }
 }
